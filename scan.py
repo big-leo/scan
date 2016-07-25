@@ -3,11 +3,39 @@
 import socket
 import threading
 import sys
-import time
+#import time
 import getopt
 
-_mutex = threading.Lock()
 
+_mutex = threading.Lock()
+HELP_LEVEL = '''
+0 - without message
+1 - only close port(timeout)
+2 - block port
+3 - only open port
+4 - show all'''
+LOG_LEVEL = '3'
+
+
+def using():
+    '''hepl for using and EXIT'''
+    print('''
+-h --help \t for help
+-l --log \t for set log level''')
+    print(HELP_LEVEL)
+    print('''
+-t --thread --threads \t for set number threads
+
+EXAMPLE
+./scan.py -t 10 -l 4 127.0.0.1 127.0.1.1 20 30
+''')
+    sys.exit(0)
+
+
+def send_msg(msg, lvl):
+    '''message on screen'''
+    if LOG_LEVEL == 5 or lvl in LOG_LEVEL:
+        print(msg)
 
 def check_host(host):
     '''check correct ip address'''
@@ -76,7 +104,12 @@ def next_host_port(host1, host2, port1, port2):
 
 def check_params(input_line):
     '''check enter input parameters'''
-    opts, args = getopt.getopt(input_line[1:], 't:')
+    param1 = 't:l:h'
+    param2 = ['thread=', 'threads=', 'log=', 'help']
+    try:
+        opts, args = getopt.getopt(input_line[1:], param1, param2)
+    except getopt.GetoptError:
+        using()
     host1 = None
     host2 = None
     port1 = None
@@ -85,7 +118,14 @@ def check_params(input_line):
     print('opts:', opts)
     print('args:', args)
     for arg, opt in opts:
-        if arg == '-t':
+        if arg in '-h,--help':
+            using()
+        if arg in '-l,--log':
+            tmp_lvl = int(opt)
+            if 0 < tmp_lvl:
+                global LOG_LEVEL
+                LOG_LEVEL = opt
+        if arg in '-t,--thread,--threads':
             try:
                 num_ths = int(opt)
                 if not num_ths > 0:
@@ -117,11 +157,12 @@ def scan(host, port):
     sock.settimeout(1)
     try:
         sock.connect((host, port))
-        print('connected:', host, ':', port)
+        send_msg('connected: ' + host + ' : ' + str(port), '3')
     except ConnectionRefusedError:
-        print('Blocking Connection Refused Error %s %s' % (host, port))
+        msg = 'Blocking Connection Refused Error ' + host + ' : ' + str(port)
+        send_msg(msg, '2')
     except socket.timeout:
-        print('timeout', host, port)
+        send_msg('timeout ' + host + ' : ' + str(port), '1')
 #    except OSError:
 #        print('OSError', host, port)
 
@@ -138,7 +179,7 @@ def pth(getter, name):
             quan += 1
         except StopIteration:
             break
-    print(name, str(quan))
+    send_msg(name + ' ' + str(quan), 4)
 
 def main():
     '''main func for running'''
@@ -147,6 +188,9 @@ def main():
         host2 = host1
     if not port2:
         port2 = port1
+    if not host1 or not len(host1.split('.')) == 4 or not port1:
+        using()
+
     if bigger_ip(host1, host2):
         temp = host1
         host1 = host2

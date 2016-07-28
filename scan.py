@@ -34,7 +34,7 @@ EXAMPLE
 
 def send_msg(msg, lvl):
     '''message on screen'''
-    if LOG_LEVEL == 5 or lvl in LOG_LEVEL:
+    if LOG_LEVEL == '4' or not LOG_LEVEL.find(lvl) < 0:
         print(msg)
 
 def check_host(host):
@@ -122,7 +122,7 @@ def check_params(input_line):
             using()
         if arg in '-l,--log':
             tmp_lvl = int(opt)
-            if 0 < tmp_lvl:
+            if not 0 > tmp_lvl:
                 global LOG_LEVEL
                 LOG_LEVEL = opt
         if arg in '-t,--thread,--threads':
@@ -179,7 +179,7 @@ def pth(getter, name):
             quan += 1
         except StopIteration:
             break
-    send_msg(name + ' ' + str(quan), 4)
+    send_msg(name + ' ' + str(quan), '4')
 
 def main():
     '''main func for running'''

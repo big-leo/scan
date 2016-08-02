@@ -9,33 +9,41 @@ import getopt
 
 _mutex = threading.Lock()
 HELP_LEVEL = '''
-0 - without message
-1 - only close port(timeout)
-2 - block port
-3 - only open port
-4 - show all'''
+    0 - without message
+    1 - only close port(timeout)
+    2 - block port
+    3 - only open port
+    4 - show all'''
 LOG_LEVEL = '3'
+PRINT_NAME = False
+HOSTS_ADDR_NAME = dict()
 
 
 def using():
     '''hepl for using and EXIT'''
     print('''
 -h --help \t for help
--l --log \t for set log level''')
-    print(HELP_LEVEL)
-    print('''
+-l --log \t for set log level
+%s
 -t --thread --threads \t for set number threads
 
 EXAMPLE
 ./scan.py -t 10 -l 4 127.0.0.1 127.0.1.1 20 30
-''')
+    ''' % HELP_LEVEL)
     sys.exit(0)
 
 
-def send_msg(msg, lvl):
+def send_msg(msg='', host='', port='', lvl=0):
     '''message on screen'''
     if LOG_LEVEL == '4' or not LOG_LEVEL.find(lvl) < 0:
-        print(msg)
+        if PRINT_NAME and not host == '' and not HOSTS_ADDR_NAME[host] == '':
+            name = HOSTS_ADDR_NAME[host]
+            print('%s %s:%s %s' % (name, host, port, msg))
+        elif not host == '':
+            print('%s:%s %s' % (host, port, msg))
+        else:
+            print('%s' % (msg))
+
 
 def check_host(host):
     '''check correct ip address'''
@@ -89,23 +97,34 @@ def next_host(host_before, host_last):
 
 def next_host_port(host1, host2, port1, port2):
     '''get yield next port'''
-    array_host = []
+    global HOSTS_ADDR_NAME
     while True:
         try:
-            array_host.append(host1)
+            if PRINT_NAME:
+                try:
+                    HOSTS_ADDR_NAME[host1] = socket.gethostbyaddr(host1)[0]
+                except ValueError:
+                    #print('ValueError')
+                    HOSTS_ADDR_NAME[host1] = ''
+                except OSError:
+                    #print('OSError')
+                    HOSTS_ADDR_NAME[host1] = ''
+            else:
+                HOSTS_ADDR_NAME[host1] = ''
             host1 = next_host(host1, host2)
         except OSError:
+            #print('EXCEPT2')
             break
-    #print('array_host: ', array_host)
-    for host in array_host:
+    #print('HOSTS_ADDR_NAME: ', HOSTS_ADDR_NAME)
+    for host in HOSTS_ADDR_NAME:
         for port in range(port1, port2 + 1):
             yield {'host': host, 'port': port}
 
 
 def check_params(input_line):
     '''check enter input parameters'''
-    param1 = 't:l:h'
-    param2 = ['thread=', 'threads=', 'log=', 'help']
+    param1 = 't:l:hn'
+    param2 = ['thread=', 'threads=', 'log=', 'help', 'name']
     try:
         opts, args = getopt.getopt(input_line[1:], param1, param2)
     except getopt.GetoptError:
@@ -118,14 +137,17 @@ def check_params(input_line):
     print('opts:', opts)
     print('args:', args)
     for arg, opt in opts:
-        if arg in '-h,--help':
+        if arg in '-h,--help'.split(','):
             using()
-        if arg in '-l,--log':
+        if arg in '-n,--name'.split(','):
+            global PRINT_NAME
+            PRINT_NAME = True
+        if arg in '-l,--log'.split(','):
             tmp_lvl = int(opt)
             if not 0 > tmp_lvl:
                 global LOG_LEVEL
                 LOG_LEVEL = opt
-        if arg in '-t,--thread,--threads':
+        if arg in '-t,--thread,--threads'.split(','):
             try:
                 num_ths = int(opt)
                 if not num_ths > 0:
@@ -157,12 +179,12 @@ def scan(host, port):
     sock.settimeout(1)
     try:
         sock.connect((host, port))
-        send_msg('connected: ' + host + ' : ' + str(port), '3')
+        send_msg(msg='connected ', host=host, port=str(port), lvl='3')
     except ConnectionRefusedError:
-        msg = 'Blocking Connection Refused Error ' + host + ' : ' + str(port)
-        send_msg(msg, '2')
+        msg = 'Blocking Connection Refused Error '
+        send_msg(msg=msg, host=host, port=str(port), lvl='2')
     except socket.timeout:
-        send_msg('timeout ' + host + ' : ' + str(port), '1')
+        send_msg(msg='timeout ', host=host, port=str(port), lvl='1')
 #    except OSError:
 #        print('OSError', host, port)
 
@@ -179,7 +201,7 @@ def pth(getter, name):
             quan += 1
         except StopIteration:
             break
-    send_msg(name + ' ' + str(quan), '4')
+    send_msg(msg=name + ' ' + str(quan), lvl='4')
 
 def main():
     '''main func for running'''
